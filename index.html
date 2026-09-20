@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Jerry's Singing Tuner</title>
+  <meta name="description" content="Play a note on the keyboard, sing it back, and see how close you are." />
+  <meta name="theme-color" content="#111318" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Tuner" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111318;
+      color: #f5f7fb;
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+
+    button,
+    .white-key,
+    .black-key {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    h1, h2 {
+      margin-top: 0;
+    }
+
+    .subtitle {
+      color: #b9c0cc;
+      margin-bottom: 18px;
+    }
+
+    .topbar,
+    .panel {
+      background: #1a1f28;
+      border: 1px solid #2d3441;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    button,
+    input {
+      background: #0f1319;
+      color: #f5f7fb;
+      border: 1px solid #3a4354;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 16px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .keyboard-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: end;
+      justify-content: center;
+    }
+
+    .keyboard-controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .octave-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .range-label {
+      color: #c8d0dd;
+      font-weight: 600;
+      padding: 10px 12px;
+      background: #10141b;
+      border: 1px solid #30394a;
+      border-radius: 10px;
+    }
+
+    .keyboard {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 8px 0;
+      min-height: 220px;
+      border: 1px solid #30394a;
+      border-radius: 12px;
+      background: #10141b;
+      display: flex;
+      justify-content: center;
+    }
+
+    .keyboard-inner {
+      position: relative;
+      height: 220px;
+      margin: 10px auto;
+    }
+
+    .white-key {
+      position: absolute;
+      top: 0;
+      background: linear-gradient(to bottom, #ffffff 0%, #eef1f6 100%);
+      border: 1px solid #b5bcc8;
+      border-radius: 0 0 8px 8px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 12px;
+      color: #111;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 1;
+      touch-action: manipulation;
+    }
+
+    .white-key.active {
+      background: linear-gradient(to bottom, #dfe5ef 0%, #cfd7e4 100%);
+    }
+
+    .black-key {
+      position: absolute;
+      top: 0;
+      background: linear-gradient(to bottom, #2f3440 0%, #090b10 100%);
+      border: 1px solid #000;
+      border-radius: 0 0 6px 6px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 10px;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 600;
+      touch-action: manipulation;
+    }
+
+    .black-key.active {
+      background: linear-gradient(to bottom, #4a5263 0%, #1d222d 100%);
+    }
+
+    .readouts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .readout-card {
+      background: #10141b;
+      border: 1px solid #30394a;
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .label {
+      color: #aeb6c3;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .needle-wrap {
+      margin: 12px 0 14px 0;
+    }
+
+    .meter-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #9aa3b2;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .meter {
+      position: relative;
+      height: 90px;
+      border-radius: 14px;
+      background:
+        linear-gradient(to right,
+          #202632 0%,
+          #263042 20%,
+          #1c3a35 45%,
+          #24483f 50%,
+          #1c3a35 55%,
+          #263042 80%,
+          #202632 100%);
+      border: 1px solid #384255;
+      overflow: hidden;
+    }
+
+    .meter-center-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 3px;
+      transform: translateX(-50%);
+      background: #e8edf7;
+      opacity: 0.9;
+    }
+
+    .needle {
+      position: absolute;
+      left: 50%;
+      bottom: 10px;
+      width: 4px;
+      height: 62px;
+      background: #ffefef;
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(0deg);
+      border-radius: 999px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.25);
+      transition: transform 0.08s linear;
+    }
+
+    .needle::after {
+      content: "";
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: #f5f7fb;
+    }
+
+    .feedback {
+      display: grid;
+      gap: 6px;
+    }
+
+    .accuracy {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .direction {
+      color: #d7dde7;
+    }
+
+    @media (max-width: 900px) {
+      .readouts {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 780px) {
+      .keyboard-inner {
+        height: 180px;
+      }
+
+      .keyboard {
+        min-height: 180px;
+        justify-content: flex-start;
+      }
+
+      .app {
+        padding-top: 12px;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .keyboard-controls label {
+        min-width: 0;
+        flex: 1 1 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Jerry's Singing Tuner</h1>
+    <p class="subtitle">Play a note, then sing it and watch the tuner needle.</p>
+
+    <section class="topbar">
+      <button id="startAudioBtn">Enable Audio</button>
+      <button id="micBtn">Enable Mic</button>
+      <span id="status">Audio not started</span>
+    </section>
+
+    <section class="panel">
+      <h2>Keyboard</h2>
+
+      <div class="keyboard-controls">
+        <label>
+          Volume
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.22" />
+        </label>
+
+        <div class="octave-controls">
+          <button id="octaveDownBtn">Octave Down</button>
+          <button id="octaveUpBtn">Octave Up</button>
+          <div id="rangeLabel" class="range-label">Range: C3 to C5</div>
+        </div>
+      </div>
+
+      <div id="keyboard" class="keyboard"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Tuner</h2>
+
+      <div class="readouts">
+        <div class="readout-card">
+          <div class="label">Target</div>
+          <div id="targetNote" class="value">--</div>
+        </div>
+        <div class="readout-card">
+          <div class="label">Detected</div>
+          <div id="detectedNote" class="value">--</div>
+        </div>
+        <div class="readout-card">
+          <div class="label">Frequency</div>
+          <div id="detectedFreq" class="value">-- Hz</div>
+        </div>
+        <div class="readout-card">
+          <div class="label">Cents</div>
+          <div id="centsText" class="value">--</div>
+        </div>
+      </div>
+
+      <div class="needle-wrap">
+        <div class="meter-labels">
+          <span>-50</span>
+          <span>-25</span>
+          <span>0</span>
+          <span>+25</span>
+          <span>+50</span>
+        </div>
+
+        <div class="meter">
+          <div class="meter-center-line"></div>
+          <div id="needle" class="needle"></div>
+        </div>
+      </div>
+
+      <div class="feedback">
+        <div id="accuracyText" class="accuracy">--</div>
+        <div id="directionText" class="direction">Enable mic and sing a steady note.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    let audioCtx = null;
+    let masterGain = null;
+    let analyser = null;
+    let micSource = null;
+    let tunerData = null;
+    let tunerActive = false;
+    let activeVoices = new Map();
+    let targetMidi = null;
+
+    let displayStartOctave = 3;
+    const displayedOctaves = 2;
+    const includeTopC = true;
+
+    const startAudioBtn = document.getElementById("startAudioBtn");
+    const micBtn = document.getElementById("micBtn");
+    const octaveDownBtn = document.getElementById("octaveDownBtn");
+    const octaveUpBtn = document.getElementById("octaveUpBtn");
+    const rangeLabel = document.getElementById("rangeLabel");
+
+    const statusEl = document.getElementById("status");
+    const keyboardEl = document.getElementById("keyboard");
+    const volumeEl = document.getElementById("volume");
+
+    const targetNoteEl = document.getElementById("targetNote");
+    const detectedNoteEl = document.getElementById("detectedNote");
+    const detectedFreqEl = document.getElementById("detectedFreq");
+    const centsTextEl = document.getElementById("centsText");
+    const accuracyTextEl = document.getElementById("accuracyText");
+    const directionTextEl = document.getElementById("directionText");
+    const needleEl = document.getElementById("needle");
+
+    const whiteNotes = [
+      { name: "C", semitone: 0 },
+      { name: "D", semitone: 2 },
+      { name: "E", semitone: 4 },
+      { name: "F", semitone: 5 },
+      { name: "G", semitone: 7 },
+      { name: "A", semitone: 9 },
+      { name: "B", semitone: 11 }
+    ];
+
+    const blackNotes = [
+      { name: "C#", semitone: 1, afterWhiteIndex: 0 },
+      { name: "D#", semitone: 3, afterWhiteIndex: 1 },
+      { name: "F#", semitone: 6, afterWhiteIndex: 3 },
+      { name: "G#", semitone: 8, afterWhiteIndex: 4 },
+      { name: "A#", semitone: 10, afterWhiteIndex: 5 }
+    ];
+
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+
+    function noteNameFromMidi(midi) {
+      const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+      return `${names[midi % 12]}${Math.floor(midi / 12) - 1}`;
+    }
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = parseFloat(volumeEl.value);
+        masterGain.connect(audioCtx.destination);
+      }
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function createPianoVoice(frequency) {
+        const now = audioCtx.currentTime;
+
+        const partials = [
+            { ratio: 1.0, gain: 1.0, type: "triangle" },
+            { ratio: 2.0, gain: 0.42, type: "sine" },
+            { ratio: 3.0, gain: 0.18, type: "sine" },
+            { ratio: 4.0, gain: 0.10, type: "sine" }
+        ];
+
+        const voiceOutput = audioCtx.createGain();
+        voiceOutput.gain.value = 1.0;
+
+        const lowpass = audioCtx.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.frequency.setValueAtTime(5000, now);
+        lowpass.frequency.exponentialRampToValueAtTime(2200, now + 0.18);
+        lowpass.Q.value = 0.7;
+
+        const bodyGain = audioCtx.createGain();
+        bodyGain.gain.setValueAtTime(0.0001, now);
+        bodyGain.gain.exponentialRampToValueAtTime(0.95, now + 0.005);
+        bodyGain.gain.exponentialRampToValueAtTime(0.32, now + 0.16);
+        // stays at sustain level until noteOff()
+
+        const oscillators = [];
+
+        partials.forEach((partial, i) => {
+            const osc = audioCtx.createOscillator();
+            const oscGain = audioCtx.createGain();
+
+            osc.type = partial.type;
+            osc.frequency.setValueAtTime(frequency * partial.ratio, now);
+
+            const detuneAmount = i === 0 ? 0 : (i % 2 === 0 ? -2.5 : 2.5);
+            osc.detune.setValueAtTime(detuneAmount, now);
+
+            oscGain.gain.setValueAtTime(partial.gain, now);
+
+            osc.connect(oscGain);
+            oscGain.connect(lowpass);
+            osc.start(now);
+
+            oscillators.push({ osc, oscGain });
+        });
+
+        const attackNoiseBuffer = audioCtx.createBuffer(
+            1,
+            Math.floor(audioCtx.sampleRate * 0.025),
+            audioCtx.sampleRate
+        );
+        const channelData = attackNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < channelData.length; i++) {
+            channelData[i] = (Math.random() * 2 - 1) * (1 - i / channelData.length);
+        }
+
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = attackNoiseBuffer;
+
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = "bandpass";
+        noiseFilter.frequency.value = 2800;
+        noiseFilter.Q.value = 0.9;
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.0001, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.07, now + 0.002);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+
+        noiseSource.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(lowpass);
+        noiseSource.start(now);
+
+        lowpass.connect(bodyGain);
+        bodyGain.connect(voiceOutput);
+        voiceOutput.connect(masterGain);
+
+        return {
+            output: voiceOutput,
+            bodyGain,
+            lowpass,
+            oscillators,
+            noiseSource,
+            released: false,
+
+            stop() {
+            if (this.released) return;
+            this.released = true;
+
+            const releaseStart = audioCtx.currentTime;
+            const releaseEnd = releaseStart + 0.35;
+
+            try {
+                bodyGain.gain.cancelScheduledValues(releaseStart);
+                bodyGain.gain.setValueAtTime(
+                Math.max(bodyGain.gain.value, 0.0001),
+                releaseStart
+                );
+                bodyGain.gain.exponentialRampToValueAtTime(0.0001, releaseEnd);
+            } catch (e) {}
+
+            try {
+                lowpass.frequency.cancelScheduledValues(releaseStart);
+                lowpass.frequency.setValueAtTime(
+                Math.max(lowpass.frequency.value, 200),
+                releaseStart
+                );
+                lowpass.frequency.exponentialRampToValueAtTime(800, releaseEnd);
+            } catch (e) {}
+
+            oscillators.forEach(({ osc }) => {
+                try { osc.stop(releaseEnd + 0.03); } catch (e) {}
+            });
+
+            try { noiseSource.stop(releaseStart); } catch (e) {}
+
+            setTimeout(() => {
+                try { voiceOutput.disconnect(); } catch (e) {}
+                try { lowpass.disconnect(); } catch (e) {}
+                try { bodyGain.disconnect(); } catch (e) {}
+
+                oscillators.forEach(({ osc, oscGain }) => {
+                try { osc.disconnect(); } catch (e) {}
+                try { oscGain.disconnect(); } catch (e) {}
+                });
+
+                try { noiseFilter.disconnect(); } catch (e) {}
+                try { noiseGain.disconnect(); } catch (e) {}
+            }, 500);
+            }
+        };
+    }
+
+    function noteOn(midi) {
+      ensureAudio();
+      if (activeVoices.has(midi)) return;
+
+      const frequency = midiToFreq(midi);
+      const voice = createPianoVoice(frequency);
+
+      activeVoices.set(midi, voice);
+      targetMidi = midi;
+      targetNoteEl.textContent = noteNameFromMidi(midi);
+    }
+
+    function noteOff(midi) {
+      if (!audioCtx || !activeVoices.has(midi)) return;
+      const voice = activeVoices.get(midi);
+      voice.stop();
+      activeVoices.delete(midi);
+    }
+
+    function attachKeyHandlers(el, midi) {
+      const start = (ev) => {
+        ev.preventDefault();
+        noteOn(midi);
+        el.classList.add("active");
+      };
+
+      const end = (ev) => {
+        ev.preventDefault();
+        noteOff(midi);
+        el.classList.remove("active");
+      };
+
+      el.addEventListener("pointerdown", start);
+      el.addEventListener("pointerup", end);
+      el.addEventListener("pointerleave", end);
+      el.addEventListener("pointercancel", end);
+    }
+
+    function buildKeyboard() {
+      keyboardEl.innerHTML = "";
+
+      const inner = document.createElement("div");
+      inner.className = "keyboard-inner";
+
+      const mobile = window.innerWidth <= 780;
+      const whiteKeyWidth = mobile ? 46 : 56;
+      const blackKeyWidth = mobile ? 28 : 34;
+      const whiteKeyHeight = mobile ? 180 : 220;
+      const blackKeyHeight = mobile ? 105 : 130;
+      const whiteSpacing = whiteKeyWidth + 2;
+
+      const totalWhiteKeys = displayedOctaves * 7 + (includeTopC ? 1 : 0);
+      inner.style.width = `${totalWhiteKeys * whiteSpacing}px`;
+      inner.style.height = `${whiteKeyHeight}px`;
+
+      const allWhiteKeys = [];
+      const allBlackKeys = [];
+
+      for (let octaveOffset = 0; octaveOffset < displayedOctaves; octaveOffset++) {
+        const octave = displayStartOctave + octaveOffset;
+
+        whiteNotes.forEach((note, i) => {
+          const midi = 12 * (octave + 1) + note.semitone;
+          const key = document.createElement("div");
+          key.className = "white-key";
+          key.textContent = `${note.name}${octave}`;
+          key.style.width = `${whiteKeyWidth}px`;
+          key.style.height = `${whiteKeyHeight}px`;
+          key.style.left = `${(octaveOffset * 7 + i) * whiteSpacing}px`;
+          attachKeyHandlers(key, midi);
+          allWhiteKeys.push(key);
+        });
+
+        blackNotes.forEach((note) => {
+          const midi = 12 * (octave + 1) + note.semitone;
+          const key = document.createElement("div");
+          key.className = "black-key";
+          key.textContent = note.name;
+          key.style.width = `${blackKeyWidth}px`;
+          key.style.height = `${blackKeyHeight}px`;
+
+          const whitePos = octaveOffset * 7 + note.afterWhiteIndex;
+          const left = whitePos * whiteSpacing + whiteKeyWidth - (blackKeyWidth / 2);
+          key.style.left = `${left}px`;
+
+          attachKeyHandlers(key, midi);
+          allBlackKeys.push(key);
+        });
+      }
+
+      if (includeTopC) {
+        const topOctave = displayStartOctave + displayedOctaves;
+        const midi = 12 * (topOctave + 1);
+        const key = document.createElement("div");
+        key.className = "white-key";
+        key.textContent = `C${topOctave}`;
+        key.style.width = `${whiteKeyWidth}px`;
+        key.style.height = `${whiteKeyHeight}px`;
+        key.style.left = `${displayedOctaves * 7 * whiteSpacing}px`;
+        attachKeyHandlers(key, midi);
+        allWhiteKeys.push(key);
+      }
+
+      allWhiteKeys.forEach(key => inner.appendChild(key));
+      allBlackKeys.forEach(key => inner.appendChild(key));
+
+      keyboardEl.appendChild(inner);
+
+      const endOctave = displayStartOctave + displayedOctaves;
+      rangeLabel.textContent = `Range: C${displayStartOctave} to C${endOctave}`;
+    }
+
+    function autoCorrelate(buf, sampleRate) {
+      let rms = 0;
+      for (let i = 0; i < buf.length; i++) {
+        rms += buf[i] * buf[i];
+      }
+      rms = Math.sqrt(rms / buf.length);
+      if (rms < 0.01) return -1;
+
+      let r1 = 0;
+      let r2 = buf.length - 1;
+      const threshold = 0.2;
+
+      for (let i = 0; i < buf.length / 2; i++) {
+        if (Math.abs(buf[i]) < threshold) {
+          r1 = i;
+          break;
+        }
+      }
+
+      for (let i = 1; i < buf.length / 2; i++) {
+        if (Math.abs(buf[buf.length - i]) < threshold) {
+          r2 = buf.length - i;
+          break;
+        }
+      }
+
+      buf = buf.slice(r1, r2);
+      const c = new Array(buf.length).fill(0);
+
+      for (let i = 0; i < buf.length; i++) {
+        for (let j = 0; j < buf.length - i; j++) {
+          c[i] += buf[j] * buf[j + i];
+        }
+      }
+
+      let d = 0;
+      while (d + 1 < c.length && c[d] > c[d + 1]) {
+        d++;
+      }
+
+      let maxPos = -1;
+      let maxVal = -1;
+      for (let i = d; i < c.length; i++) {
+        if (c[i] > maxVal) {
+          maxVal = c[i];
+          maxPos = i;
+        }
+      }
+
+      let T0 = maxPos;
+      if (T0 <= 0) return -1;
+
+      const x1 = c[T0 - 1] || 0;
+      const x2 = c[T0] || 0;
+      const x3 = c[T0 + 1] || 0;
+      const a = (x1 + x3 - 2 * x2) / 2;
+      const b = (x3 - x1) / 2;
+      if (a) T0 = T0 - b / (2 * a);
+
+      return sampleRate / T0;
+    }
+
+    function frequencyToNearestMidi(freq) {
+      return Math.round(12 * Math.log2(freq / 440) + 69);
+    }
+
+    function centsBetween(freq, midi) {
+      return Math.round(1200 * Math.log2(freq / midiToFreq(midi)));
+    }
+
+    function setNeedle(cents) {
+      const clamped = Math.max(-50, Math.min(50, cents));
+      const degrees = (clamped / 50) * 35;
+      needleEl.style.transform = `translateX(-50%) rotate(${degrees}deg)`;
+    }
+
+    function accuracyLabel(absCents) {
+      if (absCents <= 5) return "Excellent";
+      if (absCents <= 10) return "Very close";
+      if (absCents <= 20) return "Close";
+      if (absCents <= 35) return "Off";
+      return "Far off";
+    }
+
+    function directionLabel(cents) {
+      if (Math.abs(cents) <= 5) return "Right on pitch";
+      return cents < 0 ? "You are flat" : "You are sharp";
+    }
+
+    async function enableMic() {
+      ensureAudio();
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      tunerData = new Float32Array(analyser.fftSize);
+
+      micSource = audioCtx.createMediaStreamSource(stream);
+      micSource.connect(analyser);
+
+      tunerActive = true;
+      statusEl.textContent = "Mic enabled";
+      updateTuner();
+    }
+
+    function updateTuner() {
+      if (!tunerActive || !analyser || !audioCtx) return;
+
+      analyser.getFloatTimeDomainData(tunerData);
+      const freq = autoCorrelate(tunerData, audioCtx.sampleRate);
+
+      if (freq !== -1 && isFinite(freq)) {
+        const detectedMidi = frequencyToNearestMidi(freq);
+        detectedNoteEl.textContent = noteNameFromMidi(detectedMidi);
+        detectedFreqEl.textContent = `${freq.toFixed(2)} Hz`;
+
+        const compareMidi = targetMidi ?? detectedMidi;
+        const cents = centsBetween(freq, compareMidi);
+        const absCents = Math.abs(cents);
+
+        centsTextEl.textContent = `${cents > 0 ? "+" : ""}${cents}`;
+        accuracyTextEl.textContent = accuracyLabel(absCents);
+        directionTextEl.textContent = targetMidi === null
+          ? "No target note selected yet"
+          : directionLabel(cents);
+
+        setNeedle(cents);
+      } else {
+        detectedNoteEl.textContent = "--";
+        detectedFreqEl.textContent = "-- Hz";
+        centsTextEl.textContent = "--";
+        accuracyTextEl.textContent = "--";
+        directionTextEl.textContent = "Enable mic and sing a steady note.";
+        setNeedle(0);
+      }
+
+      requestAnimationFrame(updateTuner);
+    }
+
+    startAudioBtn.addEventListener("click", () => {
+      ensureAudio();
+      statusEl.textContent = "Audio enabled";
+    });
+
+    micBtn.addEventListener("click", async () => {
+      try {
+        await enableMic();
+      } catch (err) {
+        statusEl.textContent = `Mic failed: ${err.message}`;
+      }
+    });
+
+    octaveDownBtn.addEventListener("click", () => {
+      if (displayStartOctave > 1) {
+        displayStartOctave--;
+        buildKeyboard();
+      }
+    });
+
+    octaveUpBtn.addEventListener("click", () => {
+      if (displayStartOctave < 6) {
+        displayStartOctave++;
+        buildKeyboard();
+      }
+    });
+
+    volumeEl.addEventListener("input", () => {
+      if (masterGain) {
+        masterGain.gain.value = parseFloat(volumeEl.value);
+      }
+    });
+
+    window.addEventListener("resize", buildKeyboard);
+
+    buildKeyboard();
+    setNeedle(0);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
