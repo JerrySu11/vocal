@@ -177,115 +177,60 @@
       background: linear-gradient(to bottom, #4a5263 0%, #1d222d 100%);
     }
 
-    .readouts {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 18px;
+    .graph-wrap {
+      margin: 4px 0 14px 0;
     }
 
-    .readout-card {
-      background: #10141b;
-      border: 1px solid #30394a;
-      border-radius: 12px;
-      padding: 12px;
-    }
-
-    .label {
-      color: #aeb6c3;
-      font-size: 0.9rem;
-      margin-bottom: 4px;
-    }
-
-    .value {
-      font-size: 1.4rem;
-      font-weight: 700;
-    }
-
-    .needle-wrap {
-      margin: 12px 0 14px 0;
-    }
-
-    .meter-labels {
+    .graph-toolbar {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
       color: #9aa3b2;
       font-size: 0.85rem;
-      margin-bottom: 6px;
     }
 
-    .meter {
-      position: relative;
-      height: 90px;
-      border-radius: 14px;
-      background:
-        linear-gradient(to right,
-          #202632 0%,
-          #263042 20%,
-          #1c3a35 45%,
-          #24483f 50%,
-          #1c3a35 55%,
-          #263042 80%,
-          #202632 100%);
-      border: 1px solid #384255;
-      overflow: hidden;
+    .legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
 
-    .meter-center-line {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 50%;
-      width: 3px;
-      transform: translateX(-50%);
-      background: #e8edf7;
-      opacity: 0.9;
-    }
-
-    .needle {
-      position: absolute;
-      left: 50%;
-      bottom: 10px;
-      width: 4px;
-      height: 62px;
-      background: #ffefef;
-      transform-origin: bottom center;
-      transform: translateX(-50%) rotate(0deg);
-      border-radius: 999px;
-      box-shadow: 0 0 10px rgba(255,255,255,0.25);
-      transition: transform 0.08s linear;
-    }
-
-    .needle::after {
+    .legend span::before {
       content: "";
-      position: absolute;
-      bottom: -8px;
-      left: 50%;
-      width: 16px;
-      height: 16px;
-      transform: translateX(-50%);
-      border-radius: 50%;
-      background: #f5f7fb;
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      margin-right: 6px;
+      vertical-align: -1px;
     }
 
-    .feedback {
-      display: grid;
-      gap: 6px;
+    .legend .l-target::before { background: rgba(88, 166, 255, 0.6); }
+    .legend .l-good::before { background: #3ddc84; }
+    .legend .l-near::before { background: #ffd166; }
+    .legend .l-off::before { background: #ff6b6b; }
+
+    .graph-buttons {
+      display: flex;
+      gap: 8px;
     }
 
-    .accuracy {
-      font-size: 1.2rem;
-      font-weight: 700;
+    .graph-buttons button {
+      padding: 6px 10px;
+      font-size: 14px;
     }
 
-    .direction {
-      color: #d7dde7;
-    }
-
-    @media (max-width: 900px) {
-      .readouts {
-        grid-template-columns: 1fr 1fr;
-      }
+    #pitchGraph {
+      display: block;
+      width: 100%;
+      height: 280px;
+      border: 1px solid #30394a;
+      border-radius: 12px;
+      background: #0c1016;
+      touch-action: pan-y;
     }
 
     @media (max-width: 780px) {
@@ -310,18 +255,21 @@
         min-width: 0;
         flex: 1 1 100%;
       }
+
+      #pitchGraph {
+        height: 230px;
+      }
     }
   </style>
 </head>
 <body>
   <main class="app">
     <h1>Jerry's Singing Tuner</h1>
-    <p class="subtitle">Play a note, then sing it and watch the tuner needle.</p>
+    <p class="subtitle">Play a note, then sing it and watch your pitch on the graph.</p>
 
     <section class="topbar">
-      <button id="startAudioBtn">Enable Audio</button>
       <button id="micBtn">Enable Mic</button>
-      <span id="status">Audio not started</span>
+      <span id="status">Mic off</span>
     </section>
 
     <section class="panel">
@@ -344,46 +292,24 @@
     </section>
 
     <section class="panel">
-      <h2>Tuner</h2>
+      <h2>Pitch Graph</h2>
 
-      <div class="readouts">
-        <div class="readout-card">
-          <div class="label">Target</div>
-          <div id="targetNote" class="value">--</div>
+      <div class="graph-wrap">
+        <div class="graph-toolbar">
+          <div class="legend">
+            <span class="l-target">Played note</span>
+            <span class="l-good">In tune</span>
+            <span class="l-near">Close</span>
+            <span class="l-off">Off</span>
+          </div>
+          <div class="graph-buttons">
+            <button id="pauseGraphBtn">Pause</button>
+            <button id="clearGraphBtn">Clear</button>
+          </div>
         </div>
-        <div class="readout-card">
-          <div class="label">Detected</div>
-          <div id="detectedNote" class="value">--</div>
-        </div>
-        <div class="readout-card">
-          <div class="label">Frequency</div>
-          <div id="detectedFreq" class="value">-- Hz</div>
-        </div>
-        <div class="readout-card">
-          <div class="label">Cents</div>
-          <div id="centsText" class="value">--</div>
-        </div>
+        <canvas id="pitchGraph"></canvas>
       </div>
 
-      <div class="needle-wrap">
-        <div class="meter-labels">
-          <span>-50</span>
-          <span>-25</span>
-          <span>0</span>
-          <span>+25</span>
-          <span>+50</span>
-        </div>
-
-        <div class="meter">
-          <div class="meter-center-line"></div>
-          <div id="needle" class="needle"></div>
-        </div>
-      </div>
-
-      <div class="feedback">
-        <div id="accuracyText" class="accuracy">--</div>
-        <div id="directionText" class="direction">Enable mic and sing a steady note.</div>
-      </div>
     </section>
   </main>
 
@@ -403,7 +329,6 @@
     const displayedOctaves = 2;
     const includeTopC = true;
 
-    const startAudioBtn = document.getElementById("startAudioBtn");
     const micBtn = document.getElementById("micBtn");
     const octaveDownBtn = document.getElementById("octaveDownBtn");
     const octaveUpBtn = document.getElementById("octaveUpBtn");
@@ -413,13 +338,22 @@
     const keyboardEl = document.getElementById("keyboard");
     const volumeEl = document.getElementById("volume");
 
-    const targetNoteEl = document.getElementById("targetNote");
-    const detectedNoteEl = document.getElementById("detectedNote");
-    const detectedFreqEl = document.getElementById("detectedFreq");
-    const centsTextEl = document.getElementById("centsText");
-    const accuracyTextEl = document.getElementById("accuracyText");
-    const directionTextEl = document.getElementById("directionText");
-    const needleEl = document.getElementById("needle");
+    const graphCanvas = document.getElementById("pitchGraph");
+    const graphCtx = graphCanvas.getContext("2d");
+    const pauseGraphBtn = document.getElementById("pauseGraphBtn");
+    const clearGraphBtn = document.getElementById("clearGraphBtn");
+
+    const GRAPH_WINDOW = 8;          // seconds of history shown
+    const MIN_FREQ = 60;             // Hz, below this the detector is unreliable
+    const MAX_FREQ = 1500;
+    const pitchSamples = [];         // { t, midi (float) | null, ref (midi int) | null }
+    const targetEvents = [];         // { midi, start, end | null }
+    const activeTargetEvents = new Map();
+    let graphPaused = false;
+    let graphFrozenAt = 0;
+    let viewLow = null;
+    let viewHigh = null;
+    let recentFreqs = [];
 
     const whiteNotes = [
       { name: "C", semitone: 0 },
@@ -604,7 +538,10 @@
 
       activeVoices.set(midi, voice);
       targetMidi = midi;
-      targetNoteEl.textContent = noteNameFromMidi(midi);
+
+      const ev = { midi, start: nowSec(), end: null };
+      targetEvents.push(ev);
+      activeTargetEvents.set(midi, ev);
     }
 
     function noteOff(midi) {
@@ -612,6 +549,12 @@
       const voice = activeVoices.get(midi);
       voice.stop();
       activeVoices.delete(midi);
+
+      const ev = activeTargetEvents.get(midi);
+      if (ev) {
+        ev.end = nowSec();
+        activeTargetEvents.delete(midi);
+      }
     }
 
     function attachKeyHandlers(el, midi) {
@@ -769,33 +712,6 @@
       return sampleRate / T0;
     }
 
-    function frequencyToNearestMidi(freq) {
-      return Math.round(12 * Math.log2(freq / 440) + 69);
-    }
-
-    function centsBetween(freq, midi) {
-      return Math.round(1200 * Math.log2(freq / midiToFreq(midi)));
-    }
-
-    function setNeedle(cents) {
-      const clamped = Math.max(-50, Math.min(50, cents));
-      const degrees = (clamped / 50) * 35;
-      needleEl.style.transform = `translateX(-50%) rotate(${degrees}deg)`;
-    }
-
-    function accuracyLabel(absCents) {
-      if (absCents <= 5) return "Excellent";
-      if (absCents <= 10) return "Very close";
-      if (absCents <= 20) return "Close";
-      if (absCents <= 35) return "Off";
-      return "Far off";
-    }
-
-    function directionLabel(cents) {
-      if (Math.abs(cents) <= 5) return "Right on pitch";
-      return cents < 0 ? "You are flat" : "You are sharp";
-    }
-
     async function enableMic() {
       ensureAudio();
 
@@ -816,46 +732,249 @@
 
       tunerActive = true;
       statusEl.textContent = "Mic enabled";
-      updateTuner();
     }
 
-    function updateTuner() {
-      if (!tunerActive || !analyser || !audioCtx) return;
+    function nowSec() {
+      return performance.now() / 1000;
+    }
 
-      analyser.getFloatTimeDomainData(tunerData);
-      const freq = autoCorrelate(tunerData, audioCtx.sampleRate);
+    function midiFloatFromFreq(freq) {
+      return 12 * Math.log2(freq / 440) + 69;
+    }
 
-      if (freq !== -1 && isFinite(freq)) {
-        const detectedMidi = frequencyToNearestMidi(freq);
-        detectedNoteEl.textContent = noteNameFromMidi(detectedMidi);
-        detectedFreqEl.textContent = `${freq.toFixed(2)} Hz`;
+    function resizeGraph() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = graphCanvas.getBoundingClientRect();
+      graphCanvas.width = Math.max(1, Math.round(rect.width * dpr));
+      graphCanvas.height = Math.max(1, Math.round(rect.height * dpr));
+    }
 
-        const compareMidi = targetMidi ?? detectedMidi;
-        const cents = centsBetween(freq, compareMidi);
-        const absCents = Math.abs(cents);
+    function pruneHistory(now) {
+      const cutoff = now - GRAPH_WINDOW - 1;
+      while (pitchSamples.length && pitchSamples[0].t < cutoff) {
+        pitchSamples.shift();
+      }
+      for (let i = targetEvents.length - 1; i >= 0; i--) {
+        const ev = targetEvents[i];
+        if (ev.end !== null && ev.end < cutoff) targetEvents.splice(i, 1);
+      }
+    }
 
-        centsTextEl.textContent = `${cents > 0 ? "+" : ""}${cents}`;
-        accuracyTextEl.textContent = accuracyLabel(absCents);
-        directionTextEl.textContent = targetMidi === null
-          ? "No target note selected yet"
-          : directionLabel(cents);
+    function traceColor(absCents) {
+      if (absCents <= 10) return "#3ddc84";
+      if (absCents <= 25) return "#ffd166";
+      return "#ff6b6b";
+    }
 
-        setNeedle(cents);
+    function drawGraph(now) {
+      const dpr = window.devicePixelRatio || 1;
+      const ctx = graphCtx;
+      const w = graphCanvas.width / dpr;
+      const h = graphCanvas.height / dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const leftPad = 36;
+      const rightPad = 8;
+      const topPad = 6;
+      const botPad = 18;
+      const plotW = w - leftPad - rightPad;
+      const plotH = h - topPad - botPad;
+
+      // Vertical range: keyboard range, widened to include anything recently sung or played.
+      const kbLow = 12 * (displayStartOctave + 1);
+      const kbHigh = 12 * (displayStartOctave + displayedOctaves + 1);
+      let lo = kbLow - 2;
+      let hi = kbHigh + 2;
+      for (const smp of pitchSamples) {
+        if (smp.midi === null || smp.t < now - GRAPH_WINDOW) continue;
+        lo = Math.min(lo, smp.midi - 1.5);
+        hi = Math.max(hi, smp.midi + 1.5);
+      }
+      for (const ev of targetEvents) {
+        lo = Math.min(lo, ev.midi - 1.5);
+        hi = Math.max(hi, ev.midi + 1.5);
+      }
+      if (viewLow === null) {
+        viewLow = lo;
+        viewHigh = hi;
       } else {
-        detectedNoteEl.textContent = "--";
-        detectedFreqEl.textContent = "-- Hz";
-        centsTextEl.textContent = "--";
-        accuracyTextEl.textContent = "--";
-        directionTextEl.textContent = "Enable mic and sing a steady note.";
-        setNeedle(0);
+        viewLow += (lo - viewLow) * 0.12;
+        viewHigh += (hi - viewHigh) * 0.12;
       }
 
-      requestAnimationFrame(updateTuner);
+      const yOf = (midi) => topPad + ((viewHigh - midi) / (viewHigh - viewLow)) * plotH;
+      const xOf = (t) => leftPad + (1 - (now - t) / GRAPH_WINDOW) * plotW;
+
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, topPad, w, plotH);
+      ctx.clip();
+
+      // Note rows (piano-roll style) and labels.
+      const blackSet = new Set([1, 3, 6, 8, 10]);
+      const rowH = plotH / (viewHigh - viewLow);
+      ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let m = Math.floor(viewLow); m <= Math.ceil(viewHigh); m++) {
+        const yTop = yOf(m + 0.5);
+        const yBot = yOf(m - 0.5);
+        const pc = ((m % 12) + 12) % 12;
+        ctx.fillStyle = blackSet.has(pc) ? "#0c1016" : "#131a24";
+        ctx.fillRect(leftPad, yTop, plotW, yBot - yTop);
+
+        if (pc === 0) {
+          ctx.strokeStyle = "#3a4354";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(leftPad, yBot);
+          ctx.lineTo(w - rightPad, yBot);
+          ctx.stroke();
+        }
+
+        let label = false;
+        if (rowH >= 11) label = !blackSet.has(pc);
+        else if (rowH >= 6) label = pc === 0 || pc === 5;
+        else label = pc === 0;
+        if (label) {
+          ctx.fillStyle = pc === 0 ? "#c8d0dd" : "#7f8898";
+          ctx.fillText(noteNameFromMidi(m), leftPad - 5, (yTop + yBot) / 2);
+        }
+      }
+
+      // Time grid, one line per second.
+      ctx.strokeStyle = "rgba(255,255,255,0.06)";
+      ctx.lineWidth = 1;
+      for (let sec = Math.ceil(now - GRAPH_WINDOW); sec <= now; sec++) {
+        const x = xOf(sec);
+        ctx.beginPath();
+        ctx.moveTo(x, topPad);
+        ctx.lineTo(x, topPad + plotH);
+        ctx.stroke();
+      }
+
+      // Played (target) notes as bars.
+      for (const ev of targetEvents) {
+        const x1 = Math.max(leftPad, xOf(ev.start));
+        const x2 = Math.min(w - rightPad, xOf(ev.end === null ? now : ev.end));
+        if (x2 <= leftPad) continue;
+        const yTop = yOf(ev.midi + 0.5);
+        const yBot = yOf(ev.midi - 0.5);
+        ctx.fillStyle = "rgba(88, 166, 255, 0.35)";
+        ctx.fillRect(x1, yTop, Math.max(2, x2 - x1), yBot - yTop);
+        ctx.strokeStyle = "rgba(140, 195, 255, 0.9)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x1, (yTop + yBot) / 2);
+        ctx.lineTo(x2, (yTop + yBot) / 2);
+        ctx.stroke();
+      }
+
+      // Sung pitch trace, colored by distance from the reference note.
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      let prev = null;
+      for (const smp of pitchSamples) {
+        if (smp.t < now - GRAPH_WINDOW - 0.2) continue;
+        if (smp.midi === null) {
+          prev = null;
+          continue;
+        }
+        if (prev && smp.t - prev.t < 0.15) {
+          const ref = smp.ref !== null ? smp.ref : Math.round(smp.midi);
+          ctx.strokeStyle = traceColor(Math.abs(smp.midi - ref) * 100);
+          ctx.beginPath();
+          ctx.moveTo(xOf(prev.t), yOf(prev.midi));
+          ctx.lineTo(xOf(smp.t), yOf(smp.midi));
+          ctx.stroke();
+        }
+        prev = smp;
+      }
+
+      // Current point marker.
+      const last = pitchSamples[pitchSamples.length - 1];
+      if (last && last.midi !== null && now - last.t < 0.15) {
+        const ref = last.ref !== null ? last.ref : Math.round(last.midi);
+        ctx.fillStyle = traceColor(Math.abs(last.midi - ref) * 100);
+        ctx.beginPath();
+        ctx.arc(xOf(last.t), yOf(last.midi), 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+
+      // Time axis labels.
+      ctx.fillStyle = "#7f8898";
+      ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let sec = Math.ceil(now - GRAPH_WINDOW); sec <= now; sec += 2) {
+        const ago = Math.round(now - sec);
+        ctx.fillText(ago === 0 ? "now" : `-${ago}s`, xOf(sec), topPad + plotH + 4);
+      }
+
+      if (graphPaused) {
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+        ctx.textAlign = "right";
+        ctx.textBaseline = "top";
+        ctx.fillText("PAUSED", w - rightPad - 6, topPad + 6);
+      }
     }
 
-    startAudioBtn.addEventListener("click", () => {
-      ensureAudio();
-      statusEl.textContent = "Audio enabled";
+    function detectFrequency() {
+      analyser.getFloatTimeDomainData(tunerData);
+      let freq = autoCorrelate(tunerData, audioCtx.sampleRate);
+      if (freq === -1 || !isFinite(freq) || freq < MIN_FREQ || freq > MAX_FREQ) {
+        recentFreqs = [];
+        return null;
+      }
+      // Median of the last three readings to knock out single-frame glitches.
+      recentFreqs.push(freq);
+      if (recentFreqs.length > 3) recentFreqs.shift();
+      if (recentFreqs.length === 3) {
+        freq = [...recentFreqs].sort((a, b) => a - b)[1];
+      }
+      return freq;
+    }
+
+    function tick() {
+      const now = nowSec();
+
+      if (tunerActive && analyser && audioCtx) {
+        const freq = detectFrequency();
+        if (!graphPaused) {
+          pitchSamples.push({
+            t: now,
+            midi: freq === null ? null : midiFloatFromFreq(freq),
+            ref: targetMidi
+          });
+        }
+      }
+
+      if (!graphPaused) pruneHistory(now);
+      drawGraph(graphPaused ? graphFrozenAt : now);
+
+      requestAnimationFrame(tick);
+    }
+
+    pauseGraphBtn.addEventListener("click", () => {
+      graphPaused = !graphPaused;
+      graphFrozenAt = nowSec();
+      pauseGraphBtn.textContent = graphPaused ? "Resume" : "Pause";
+    });
+
+    clearGraphBtn.addEventListener("click", () => {
+      const now = nowSec();
+      pitchSamples.length = 0;
+      for (let i = targetEvents.length - 1; i >= 0; i--) {
+        if (targetEvents[i].end !== null) targetEvents.splice(i, 1);
+        else targetEvents[i].start = now;
+      }
+      if (graphPaused) graphFrozenAt = now;
     });
 
     micBtn.addEventListener("click", async () => {
@@ -886,10 +1005,14 @@
       }
     });
 
-    window.addEventListener("resize", buildKeyboard);
+    window.addEventListener("resize", () => {
+      buildKeyboard();
+      resizeGraph();
+    });
 
     buildKeyboard();
-    setNeedle(0);
+    resizeGraph();
+    tick();
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

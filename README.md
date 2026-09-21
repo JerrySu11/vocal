@@ -1,6 +1,6 @@
 # Jerry's Singing Tuner
 
-Play a note on the on-screen keyboard, sing it back, and watch the tuner needle.
+Play a note on the on-screen keyboard, sing it back, and watch your pitch trace on a scrolling graph. Played notes show as bars so you can see how close you are.
 
 Live site: https://jerrysu11.github.io/vocal/
 
