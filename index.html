@@ -226,11 +226,25 @@
     #pitchGraph {
       display: block;
       width: 100%;
-      height: 280px;
+      height: 440px;
       border: 1px solid #30394a;
       border-radius: 12px;
       background: #0c1016;
-      touch-action: pan-y;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    #pitchGraph.dragging {
+      cursor: grabbing;
+    }
+
+    .graph-buttons button.active {
+      border-color: #58a6ff;
+      color: #9fcbff;
+    }
+
+    .hint {
+      color: #6f7887;
     }
 
     @media (max-width: 780px) {
@@ -257,7 +271,7 @@
       }
 
       #pitchGraph {
-        height: 230px;
+        height: min(62vh, 480px);
       }
     }
   </style>
@@ -301,8 +315,10 @@
             <span class="l-good">In tune</span>
             <span class="l-near">Close</span>
             <span class="l-off">Off</span>
+            <span class="hint">Drag to scroll</span>
           </div>
           <div class="graph-buttons">
+            <button id="followBtn" class="active">Follow</button>
             <button id="pauseGraphBtn">Pause</button>
             <button id="clearGraphBtn">Clear</button>
           </div>
@@ -340,6 +356,7 @@
 
     const graphCanvas = document.getElementById("pitchGraph");
     const graphCtx = graphCanvas.getContext("2d");
+    const followBtn = document.getElementById("followBtn");
     const pauseGraphBtn = document.getElementById("pauseGraphBtn");
     const clearGraphBtn = document.getElementById("clearGraphBtn");
 
@@ -351,8 +368,14 @@
     const activeTargetEvents = new Map();
     let graphPaused = false;
     let graphFrozenAt = 0;
-    let viewLow = null;
-    let viewHigh = null;
+    const VIEW_SPAN = 12;            // semitones visible at once (one octave)
+    const VIEW_MIN = 24;             // C1
+    const VIEW_MAX = 96;             // C7
+    const PAD = { left: 36, right: 8, top: 6, bottom: 18 };
+    let viewLow = null;              // bottom edge of the visible range, in MIDI
+    let scrollTargetLow = null;      // where auto-follow is easing the view to
+    let followMode = true;
+    let drag = null;
     let recentFreqs = [];
 
     const whiteNotes = [
@@ -773,34 +796,35 @@
       const h = graphCanvas.height / dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const leftPad = 36;
-      const rightPad = 8;
-      const topPad = 6;
-      const botPad = 18;
+      const leftPad = PAD.left;
+      const rightPad = PAD.right;
+      const topPad = PAD.top;
+      const botPad = PAD.bottom;
       const plotW = w - leftPad - rightPad;
       const plotH = h - topPad - botPad;
 
-      // Vertical range: keyboard range, widened to include anything recently sung or played.
-      const kbLow = 12 * (displayStartOctave + 1);
-      const kbHigh = 12 * (displayStartOctave + displayedOctaves + 1);
-      let lo = kbLow - 2;
-      let hi = kbHigh + 2;
-      for (const smp of pitchSamples) {
-        if (smp.midi === null || smp.t < now - GRAPH_WINDOW) continue;
-        lo = Math.min(lo, smp.midi - 1.5);
-        hi = Math.max(hi, smp.midi + 1.5);
-      }
-      for (const ev of targetEvents) {
-        lo = Math.min(lo, ev.midi - 1.5);
-        hi = Math.max(hi, ev.midi + 1.5);
-      }
+      // Vertical range: one octave, scrolled by hand or by auto-follow.
       if (viewLow === null) {
-        viewLow = lo;
-        viewHigh = hi;
-      } else {
-        viewLow += (lo - viewLow) * 0.12;
-        viewHigh += (hi - viewHigh) * 0.12;
+        viewLow = 12 * (displayStartOctave + 1) + 12 - VIEW_SPAN / 2;
       }
+      if (followMode) {
+        const focus = focusMidi(now);
+        if (focus !== null) {
+          const margin = 1.5;
+          if (focus < viewLow + margin || focus > viewLow + VIEW_SPAN - margin) {
+            scrollTargetLow = focus - VIEW_SPAN / 2;
+          }
+        }
+      }
+      if (scrollTargetLow !== null) {
+        scrollTargetLow = clampViewLow(scrollTargetLow);
+        viewLow += (scrollTargetLow - viewLow) * 0.15;
+        if (Math.abs(scrollTargetLow - viewLow) < 0.01) {
+          viewLow = scrollTargetLow;
+          scrollTargetLow = null;
+        }
+      }
+      const viewHigh = viewLow + VIEW_SPAN;
 
       const yOf = (midi) => topPad + ((viewHigh - midi) / (viewHigh - viewLow)) * plotH;
       const xOf = (t) => leftPad + (1 - (now - t) / GRAPH_WINDOW) * plotW;
@@ -835,12 +859,14 @@
         }
 
         let label = false;
-        if (rowH >= 11) label = !blackSet.has(pc);
-        else if (rowH >= 6) label = pc === 0 || pc === 5;
-        else label = pc === 0;
+        if (rowH >= 16) label = true;
+        else if (rowH >= 11) label = !blackSet.has(pc);
+        else label = pc === 0 || pc === 5;
+        const yMid = (yTop + yBot) / 2;
+        if (yMid < topPad + 6 || yMid > topPad + plotH - 6) label = false;
         if (label) {
-          ctx.fillStyle = pc === 0 ? "#c8d0dd" : "#7f8898";
-          ctx.fillText(noteNameFromMidi(m), leftPad - 5, (yTop + yBot) / 2);
+          ctx.fillStyle = pc === 0 ? "#c8d0dd" : (blackSet.has(pc) ? "#5f6878" : "#7f8898");
+          ctx.fillText(noteNameFromMidi(m), leftPad - 5, yMid);
         }
       }
 
@@ -862,8 +888,10 @@
         if (x2 <= leftPad) continue;
         const yTop = yOf(ev.midi + 0.5);
         const yBot = yOf(ev.midi - 0.5);
-        ctx.fillStyle = "rgba(88, 166, 255, 0.35)";
+        ctx.fillStyle = "rgba(88, 166, 255, 0.3)";
         ctx.fillRect(x1, yTop, Math.max(2, x2 - x1), yBot - yTop);
+        ctx.fillStyle = "rgba(88, 166, 255, 0.35)";
+        ctx.fillRect(x1, yOf(ev.midi + 0.1), Math.max(2, x2 - x1), yOf(ev.midi - 0.1) - yOf(ev.midi + 0.1));
         ctx.strokeStyle = "rgba(140, 195, 255, 0.9)";
         ctx.lineWidth = 1.5;
         ctx.beginPath();
@@ -924,6 +952,70 @@
         ctx.fillText("PAUSED", w - rightPad - 6, topPad + 6);
       }
     }
+
+    function clampViewLow(low) {
+      return Math.max(VIEW_MIN, Math.min(VIEW_MAX - VIEW_SPAN, low));
+    }
+
+    // The pitch auto-follow wants to keep in view: a held key first, then the voice.
+    function focusMidi(now) {
+      let latest = null;
+      for (const ev of activeTargetEvents.values()) {
+        if (latest === null || ev.start > latest.start) latest = ev;
+      }
+      if (latest) return latest.midi;
+      const last = pitchSamples[pitchSamples.length - 1];
+      if (last && last.midi !== null && now - last.t < 0.5) return last.midi;
+      return null;
+    }
+
+    function setFollow(on) {
+      followMode = on;
+      followBtn.classList.toggle("active", on);
+      if (on) {
+        const focus = focusMidi(nowSec());
+        if (focus !== null) scrollTargetLow = focus - VIEW_SPAN / 2;
+      }
+    }
+
+    function semitonesPerPixel() {
+      const rect = graphCanvas.getBoundingClientRect();
+      const plotH = rect.height - PAD.top - PAD.bottom;
+      return VIEW_SPAN / Math.max(1, plotH);
+    }
+
+    graphCanvas.addEventListener("pointerdown", (e) => {
+      drag = { y: e.clientY, low: viewLow, moved: false, id: e.pointerId };
+      graphCanvas.setPointerCapture(e.pointerId);
+    });
+
+    graphCanvas.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dy = e.clientY - drag.y;
+      if (!drag.moved && Math.abs(dy) < 4) return;
+      drag.moved = true;
+      graphCanvas.classList.add("dragging");
+      scrollTargetLow = null;
+      if (followMode) setFollow(false);
+      viewLow = clampViewLow(drag.low + dy * semitonesPerPixel());
+    });
+
+    const endDrag = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      graphCanvas.classList.remove("dragging");
+    };
+    graphCanvas.addEventListener("pointerup", endDrag);
+    graphCanvas.addEventListener("pointercancel", endDrag);
+
+    graphCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      scrollTargetLow = null;
+      if (followMode) setFollow(false);
+      viewLow = clampViewLow(viewLow + e.deltaY * semitonesPerPixel());
+    }, { passive: false });
+
+    followBtn.addEventListener("click", () => setFollow(!followMode));
 
     function detectFrequency() {
       analyser.getFloatTimeDomainData(tunerData);
